@@ -1,6 +1,7 @@
 # Document Intelligence Platform
 
 A multi-document analysis application that allows you to upload several PDF files at once and extract structured knowledge from them collectively. The platform generates per-document summaries, identifies named entities, compares documents against each other, and answers natural-language questions with precise source attribution — all through a web interface that runs locally or on a free cloud host.
+LIVE DEMO : https://document-intelligence-platform-swnwnjuqwbc96kudr5ekmr.streamlit.app/
 
 ---
 
