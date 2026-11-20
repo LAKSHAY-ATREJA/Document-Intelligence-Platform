@@ -1,8 +1,8 @@
 # Document Intelligence Platform
 
-A multi-document analysis application that allows you to upload several PDF files at once and extract structured knowledge from them collectively. The platform generates per-document summaries, identifies named entities, compares documents against each other, and answers natural-language questions with precise source attribution — all through a web interface that runs locally or on a free cloud host.
+A multi-document analysis application that allows you to upload several PDF files at once and extract structured knowledge from them collectively. The platform generates per-document summaries, identifies named entities, compares documents against each other, and answers natural-language questions with audited evidence labels through a web interface.
 ---
-LIVE DEMO : https://document-intelligence-platform-swnwnjuqwbc96kudr5ekmr.streamlit.app/
+HOSTED PREVIEW (Streamlit account access currently required): https://document-intelligence-platform-swnwnjuqwbc96kudr5ekmr.streamlit.app/
 
 ---
 
@@ -23,7 +23,9 @@ Most document analysis tools process one file at a time. This platform treats an
 
 PDF files are parsed page by page using PyPDF. Each page is split into overlapping 500-character chunks using LangChain's RecursiveCharacterTextSplitter. All chunks from all documents are embedded with the HuggingFace `all-MiniLM-L6-v2` sentence-transformer model and indexed together in a single FAISS vector store. Every query to the Q&A system retrieves the five most semantically similar chunks from that shared index, regardless of which file they came from. Retrieved chunks are wrapped in explicit untrusted-data boundaries and assigned stable labels such as `[S1]`; the model is instructed to ignore instructions embedded in documents and cite those labels. A deterministic post-generation audit rejects unknown labels and flags uncited answers.
 
-Summarisation, entity extraction, comparison, and question answering all use the Groq-hosted Llama3-8b-8192 model via the LangChain Groq integration. Groq provides a free API tier with generous rate limits, which means the entire platform runs at zero cost.
+Summarisation, entity extraction, comparison, and question answering use the
+Groq-hosted `llama-3.1-8b-instant` model via the LangChain Groq integration.
+Provider accounts, quotas and terms remain the user's responsibility.
 
 ---
 
@@ -32,7 +34,7 @@ Summarisation, entity extraction, comparison, and question answering all use the
 | Layer | Technology |
 |---|---|
 | Frontend | Streamlit |
-| LLM inference | Groq API (Llama3-8b-8192) |
+| LLM inference | Groq API (`llama-3.1-8b-instant`) |
 | Embeddings | HuggingFace all-MiniLM-L6-v2 |
 | Vector store | FAISS (CPU) |
 | PDF parsing | PyPDF |
@@ -139,8 +141,10 @@ Sample output excerpt:
 3. Click "New app", select your fork, set the main file to `app.py`, and click "Deploy".
 4. Leave server secrets unset for a public deployment; users supply their own Groq key.
 
-The public demo linked above uses bring-your-own-key mode. It is not an offline
-model and it does not include a shared free inference key.
+The hosted preview linked above currently requires Streamlit account access, so
+it is not claimed as a public anonymous demo. The application is configured for
+bring-your-own-key mode; it is not an offline model and does not include a
+shared inference key.
 
 ### Render (free tier)
 
