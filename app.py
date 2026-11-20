@@ -1,16 +1,20 @@
-import os
-import streamlit as st
-import tempfile
 import json
 import logging
+import os
+import tempfile
+from datetime import datetime
+from html import escape
+
+import streamlit as st
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import PromptTemplate
 from langchain_groq import ChatGroq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_core.prompts import PromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from datetime import datetime
+
+from rag_core import audit_citations, build_evidence_context, grounded_prompt_template
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -178,8 +182,16 @@ def process_pdf(uploaded_file) -> list:
     """
     tmp_path = None
     try:
+        contents = uploaded_file.read()
+        max_upload_bytes = 10 * 1024 * 1024
+        if len(contents) > max_upload_bytes:
+            raise ValueError(
+                f"'{uploaded_file.name}' exceeds the 10 MB per-document limit."
+            )
+        if not contents:
+            raise ValueError(f"'{uploaded_file.name}' is empty.")
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp.write(uploaded_file.read())
+            tmp.write(contents)
             tmp_path = tmp.name
         loader = PyPDFLoader(tmp_path)
         docs = loader.load()
@@ -223,9 +235,9 @@ def summarise(text: str, fname: str, api_key: str) -> str:
             f"Document ({fname}): {text[:4000]}\n\nSummary:"
         )
         return response.content.strip()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - provider SDK exceptions are not stable
         logger.error("Summarisation failed for %s: %s", fname, e)
-        return f"Summarisation failed: {e}"
+        return "Summarisation failed. Check the server logs for details."
 
 
 def extract_entities(text: str, api_key: str) -> dict:
@@ -257,8 +269,7 @@ def extract_entities(text: str, api_key: str) -> dict:
             parts = content.split("```")
             # parts[1] is inside the first code fence
             content = parts[1]
-            if content.startswith("json"):
-                content = content[4:]
+            content = content.removeprefix("json")
         parsed = json.loads(content.strip())
         # Ensure all expected keys are present and are lists
         for key in empty:
@@ -268,7 +279,7 @@ def extract_entities(text: str, api_key: str) -> dict:
     except json.JSONDecodeError as e:
         logger.warning("Entity JSON parse error: %s", e)
         return empty
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - retriever/provider boundary
         logger.error("Entity extraction failed: %s", e)
         return empty
 
@@ -293,40 +304,50 @@ def compare_docs(summaries: dict, api_key: str) -> str:
             "### Recommendations\n[Based on all documents, what are the key takeaways?]"
         )
         return response.content.strip()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - provider SDK exceptions are not stable
         logger.error("Cross-document comparison failed: %s", e)
-        return f"Comparison failed: {e}"
+        return "Comparison failed. Check the server logs for details."
 
 
 def cross_qa(vectorstore: FAISS, question: str, api_key: str) -> tuple:
     """Answer a question using retrieval-augmented generation across the vector index.
 
-    Returns a (answer_text, source_documents) tuple.
+    Returns ``(answer_text, source_documents, citation_audit)``.
     """
     if not question.strip():
-        return "Please enter a question.", []
+        return "Please enter a question.", [], None
     if vectorstore is None:
-        return "No documents have been indexed yet. Upload at least one PDF first.", []
+        return "No documents have been indexed yet. Upload at least one PDF first.", [], None
     llm = get_llm(api_key, 0)
-    prompt_template = (
-        "Answer the question using ONLY information from the provided document excerpts.\n"
-        "Always cite which document each piece of information comes from.\n"
-        "If the answer spans multiple documents, synthesise them clearly.\n\n"
-        "Context:\n{context}\n\n"
-        "Question: {question}\n\n"
-        "Answer (cite documents):"
-    )
+    prompt_template = grounded_prompt_template()
     prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
     try:
         retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
         source_docs = retriever.invoke(question)
-        context = "\n\n".join(doc.page_content for doc in source_docs)
+        context = build_evidence_context(source_docs)
         chain = prompt | llm | StrOutputParser()
-        answer = chain.invoke({"context": context, "question": question})
-        return answer, source_docs
-    except Exception as e:
+        answer = chain.invoke({"context": context.text, "question": question})
+        citation_audit = audit_citations(answer, context)
+        return answer, source_docs, citation_audit
+    except Exception as e:  # noqa: BLE001 - retriever/provider boundary
         logger.error("Q&A failed: %s", e)
-        return f"Could not generate an answer: {e}", []
+        return "Could not generate an answer. Check the server logs for details.", [], None
+
+
+def render_citation_audit(citation_audit) -> None:
+    """Render only sources actually cited by the generated answer."""
+    if citation_audit is None:
+        return
+    if not citation_audit.passed:
+        st.warning(
+            "Grounding check failed: the answer omitted citations or used a source "
+            "label that was not retrieved. Treat it as unverified."
+        )
+    if citation_audit.cited_sources:
+        source_list = "; ".join(
+            source.display_name for source in citation_audit.cited_sources
+        )
+        st.caption(f"Cited evidence: {source_list}")
 
 
 # ── Hero ──────────────────────────────────────────────────────
@@ -347,17 +368,19 @@ st.markdown("""
 # ── Sidebar ───────────────────────────────────────────────────
 with st.sidebar:
     st.header("Configuration")
-    # Allow the API key to be pre-loaded from the environment (useful for deployments)
+    # A server-owned key on an anonymous public app can be consumed by anyone.
+    # It is opt-in for controlled/private deployments only.
     default_key = os.environ.get("GROQ_API_KEY", "")
-    if default_key:
+    allow_server_key = os.environ.get("ALLOW_SERVER_API_KEY", "false").lower() == "true"
+    if default_key and allow_server_key:
         api_key = default_key
-        st.success("API key configured")
+        st.success("Server API key enabled for this controlled deployment")
     else:
         api_key = st.text_input(
             "Groq API Key",
             type="password",
             placeholder="gsk_...",
-            help="Free key at console.groq.com",
+            help="Used for this Streamlit session; free keys are available at console.groq.com",
         )
 
     st.divider()
@@ -384,7 +407,7 @@ with st.sidebar:
                             "pages": len(docs),
                             "added": datetime.now().strftime("%H:%M"),
                         }
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - Streamlit upload boundary
                         st.error(f"Failed to process {f.name}: {e}")
                 progress.progress((idx + 1) / len(new_files))
 
@@ -394,7 +417,7 @@ with st.sidebar:
                         st.session_state.vectorstore = rebuild_vectorstore(st.session_state.documents)
                         progress.empty()
                         st.success(f"{len(new_files)} document(s) ready!")
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - vector backend boundary
                         progress.empty()
                         st.error(f"Failed to build search index: {e}")
     elif uploaded_files and not api_key:
@@ -404,7 +427,7 @@ with st.sidebar:
         st.divider()
         st.header("Document Library")
         for fname, data in st.session_state.documents.items():
-            display_name = fname[:30] + ("..." if len(fname) > 30 else "")
+            display_name = escape(fname[:30] + ("..." if len(fname) > 30 else ""))
             st.markdown(
                 f'<div class="doc-card">'
                 f'<div class="doc-info">'
@@ -474,8 +497,11 @@ with tab1:
                     st.session_state.summaries[fname] = summarise(data["text"], fname, api_key)
     if st.session_state.summaries:
         for fname, summary in st.session_state.summaries.items():
+            safe_name = escape(fname)
+            safe_summary = escape(summary).replace("\n", "<br>")
             st.markdown(
-                f'<div class="insight-card"><strong>{fname}</strong><br><br>{summary}</div>',
+                f'<div class="insight-card"><strong>{safe_name}</strong>'
+                f'<br><br>{safe_summary}</div>',
                 unsafe_allow_html=True,
             )
     else:
@@ -498,7 +524,7 @@ with tab2:
             ("Locations", "locations", "chip-loc"),
         ]
         for fname, ents in st.session_state.entities.items():
-            st.markdown(f"**{fname}**")
+            st.markdown(f"**{escape(fname)}**")
             cols = st.columns(5)
             for col, (label, key, cls) in zip(cols, entity_labels):
                 with col:
@@ -507,7 +533,7 @@ with tab2:
                     if items:
                         for item in items[:5]:
                             st.markdown(
-                                f'<span class="entity-chip {cls}">{item}</span>',
+                                f'<span class="entity-chip {cls}">{escape(str(item))}</span>',
                                 unsafe_allow_html=True,
                             )
                     else:
@@ -536,7 +562,7 @@ with tab3:
             with st.spinner("Running cross-document analysis..."):
                 st.session_state.comparison = compare_docs(st.session_state.summaries, api_key)
         if st.session_state.comparison:
-            formatted = st.session_state.comparison.replace("\n", "<br>")
+            formatted = escape(st.session_state.comparison).replace("\n", "<br>")
             st.markdown(
                 f'<div class="answer-card">{formatted}</div>',
                 unsafe_allow_html=True,
@@ -561,14 +587,7 @@ with tab4:
             st.write(qa["question"])
         with st.chat_message("assistant"):
             st.write(qa["answer"])
-            if qa.get("sources"):
-                source_files = list(
-                    {s.metadata.get("source_file", "Unknown") for s in qa["sources"]}
-                )
-                chips = " ".join(
-                    [f'<span class="source-chip">{s}</span>' for s in source_files]
-                )
-                st.markdown(f"**Sources:** {chips}", unsafe_allow_html=True)
+            render_citation_audit(qa.get("citation_audit"))
 
     question = st.chat_input("Ask anything about your documents...")
     if question:
@@ -576,15 +595,17 @@ with tab4:
             st.write(question)
         with st.chat_message("assistant"):
             with st.spinner("Searching across all documents..."):
-                answer, sources = cross_qa(st.session_state.vectorstore, question, api_key)
+                answer, sources, citation_audit = cross_qa(
+                    st.session_state.vectorstore, question, api_key
+                )
             st.write(answer)
-            source_files = list(
-                {s.metadata.get("source_file", "Unknown") for s in sources}
-            )
-            chips = " ".join(
-                [f'<span class="source-chip">{s}</span>' for s in source_files]
-            )
-            st.markdown(f"**Sources:** {chips}", unsafe_allow_html=True)
+            render_citation_audit(citation_audit)
         st.session_state.qa_history.append(
-            {"question": question, "answer": answer, "sources": sources}
+            {
+                "question": question,
+                "answer": answer,
+                "sources": sources,
+                "citation_audit": citation_audit,
+            }
         )
+
