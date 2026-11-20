@@ -13,13 +13,15 @@ Most document analysis tools process one file at a time. This platform treats an
 - Summarisation produces a 4-5 sentence factual summary for each document independently.
 - Entity extraction identifies organisations, dates, monetary figures, key topics, and locations within each document.
 - Cross-document comparison synthesises common themes, key differences, relationships between documents, and strategic takeaways.
-- Unified Q&A lets you ask free-form questions and receive answers drawn from whichever documents contain the relevant information, with the source document cited for every claim.
+- Unified Q&A asks the model to cite stable retrieved-evidence labels and audits
+  the returned labels before presenting the answer as grounded. Failed audits
+  are shown as unverified rather than silently treated as valid attribution.
 
 ---
 
 ## Architecture
 
-PDF files are parsed page by page using PyPDF. Each page is split into overlapping 500-character chunks using LangChain's RecursiveCharacterTextSplitter. All chunks from all documents are embedded with the HuggingFace `all-MiniLM-L6-v2` sentence-transformer model and indexed together in a single FAISS vector store. Every query to the Q&A system retrieves the five most semantically similar chunks from that shared index, regardless of which file they came from.
+PDF files are parsed page by page using PyPDF. Each page is split into overlapping 500-character chunks using LangChain's RecursiveCharacterTextSplitter. All chunks from all documents are embedded with the HuggingFace `all-MiniLM-L6-v2` sentence-transformer model and indexed together in a single FAISS vector store. Every query to the Q&A system retrieves the five most semantically similar chunks from that shared index, regardless of which file they came from. Retrieved chunks are wrapped in explicit untrusted-data boundaries and assigned stable labels such as `[S1]`; the model is instructed to ignore instructions embedded in documents and cite those labels. A deterministic post-generation audit rejects unknown labels and flags uncited answers.
 
 Summarisation, entity extraction, comparison, and question answering all use the Groq-hosted Llama3-8b-8192 model via the LangChain Groq integration. Groq provides a free API tier with generous rate limits, which means the entire platform runs at zero cost.
 
@@ -60,9 +62,14 @@ The first time you run the application, the sentence-transformer model (~90 MB) 
 
 | Variable | Required | Description |
 |---|---|---|
-| `GROQ_API_KEY` | Yes | Groq API key used for all LLM calls |
+| `GROQ_API_KEY` | Private deployments only | Optional server-owned Groq key |
+| `ALLOW_SERVER_API_KEY` | No | Must be explicitly `true` before the server-owned key is used |
 
-If the `GROQ_API_KEY` variable is set in the shell environment (or in a `.env` file loaded before startup), the sidebar API key field is pre-filled automatically. Otherwise, the key can be entered directly in the application UI.
+Public deployments require each user to enter their own Groq key in the password
+field. A server-owned key on an anonymous app can be consumed by any visitor, so
+it is ignored unless `ALLOW_SERVER_API_KEY=true` is explicitly set for a
+controlled/private deployment. The application does not write user-entered keys
+to disk, but Streamlit session memory and the Groq provider still process them.
 
 To obtain a free Groq API key, create an account at https://console.groq.com, navigate to API Keys, and generate a new key. The free tier allows several hundred requests per day at no cost.
 
@@ -130,9 +137,10 @@ Sample output excerpt:
 1. Fork this repository to your GitHub account.
 2. Visit https://share.streamlit.io and sign in with GitHub.
 3. Click "New app", select your fork, set the main file to `app.py`, and click "Deploy".
-4. In the app's Settings under "Secrets", add `GROQ_API_KEY = "gsk_your_key_here"`.
+4. Leave server secrets unset for a public deployment; users supply their own Groq key.
 
-Live demo: coming soon
+The public demo linked above uses bring-your-own-key mode. It is not an offline
+model and it does not include a shared free inference key.
 
 ### Render (free tier)
 
@@ -141,7 +149,9 @@ The repository includes `render.yaml` with the correct build and start commands.
 1. Create a free account at https://render.com.
 2. Click "New Web Service" and connect your GitHub repository.
 3. Render detects `render.yaml` automatically. Click "Create Web Service".
-4. Under Environment Variables, add `GROQ_API_KEY` with your key value.
+4. For a private deployment only, add `GROQ_API_KEY` and set
+   `ALLOW_SERVER_API_KEY=true`. Keep the default bring-your-own-key mode when
+   the service is publicly reachable.
 
 The free Render tier spins down after 15 minutes of inactivity; the first request after that may take 30-60 seconds to respond.
 
@@ -171,7 +181,30 @@ This is compatible with Heroku, Railway, Fly.io, and any platform that respects 
 
 The parser works on text-based PDFs where text is stored as selectable characters. Scanned PDFs (images of pages) produce no extractable text and will result in empty summaries. If you need to process scanned documents, run them through an OCR tool such as `ocrmypdf` before uploading.
 
+Each uploaded PDF is limited to 10 MB. Retrieval is evaluated only through
+deterministic grounding-policy tests in CI at present; no claim is made that the
+MiniLM embeddings or Groq model have been benchmarked on a representative legal,
+financial, or safety-critical corpus. Citation presence proves that a retrieved
+chunk was referenced, not that the generated interpretation is correct.
+
+## Quality checks
+
+```bash
+pip install -r requirements-dev.txt
+ruff check app.py rag_core.py tests
+pytest -q
+```
+
+The offline tests exercise evidence labelling, prompt-injection boundaries,
+unknown-citation rejection, missing-citation detection and explicit abstention.
+They do not call Groq or download an embedding model.
+
 ---
 
 Built by Lakshay Atreja — https://github.com/LAKSHAY-ATREJA
+
+## Licence
+
+MIT — see [LICENSE](LICENSE).
+
 
