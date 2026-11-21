@@ -1,0 +1,8 @@
+[
+  {"question": "What revenue did the annual report record?", "relevant_ids": ["finance"]},
+  {"question": "How much written notice is required to terminate the agreement?", "relevant_ids": ["termination"]},
+  {"question": "How long are customer records retained?", "relevant_ids": ["privacy"]},
+  {"question": "What was the recovery time after failover?", "relevant_ids": ["incident"]},
+  {"question": "What cyber liability insurance must the supplier carry?", "relevant_ids": ["insurance"]},
+  {"question": "How often may the customer audit security controls?", "relevant_ids": ["audit"]}
+]

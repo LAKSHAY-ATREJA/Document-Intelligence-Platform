@@ -14,7 +14,7 @@ Most document analysis tools process one file at a time. This platform treats an
 - Entity extraction identifies organisations, dates, monetary figures, key topics, and locations within each document.
 - Cross-document comparison synthesises common themes, key differences, relationships between documents, and strategic takeaways.
 - Unified Q&A asks the model to cite stable retrieved-evidence labels and audits
-  the returned labels before presenting the answer as grounded. Failed audits
+  every factual sentence and audits the returned labels before presenting the answer as grounded. Failed audits
   are shown as unverified rather than silently treated as valid attribution.
 
 ---
@@ -202,6 +202,13 @@ pytest -q
 The offline tests exercise evidence labelling, prompt-injection boundaries,
 unknown-citation rejection, missing-citation detection and explicit abstention.
 They do not call Groq or download an embedding model.
+
+`python evaluation/retrieval_eval.py --minimum-hit-rate 0.8` runs a checked-in
+BM25 baseline over six labelled, synthetic retrieval cases and reports hit
+rate at 3 and mean reciprocal rank. It is a deterministic regression floor for
+the evaluation plumbing, not evidence that the application's MiniLM embeddings
+generalise to real legal, financial or safety-critical documents. A larger,
+representative embedding benchmark remains required before making such a claim.
 
 ---
 

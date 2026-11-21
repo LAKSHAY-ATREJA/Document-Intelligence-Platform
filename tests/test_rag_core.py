@@ -52,3 +52,16 @@ def test_explicit_abstention_does_not_require_a_citation():
     audit = audit_citations("INSUFFICIENT_EVIDENCE", context)
     assert audit.passed is True
     assert audit.abstained is True
+
+
+def test_every_factual_sentence_requires_its_own_citation():
+    context = build_evidence_context(
+        [FakeDocument("Evidence", {"source_file": "policy.pdf", "page": 0})]
+    )
+    audit = audit_citations(
+        "The policy applies. A review is required. [S1]",
+        context,
+    )
+
+    assert audit.passed is False
+    assert audit.uncited_statements == ("The policy applies.",)
