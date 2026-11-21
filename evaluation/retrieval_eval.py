@@ -43,11 +43,12 @@ def rank_bm25(query: str, corpus: list[dict], *, k1: float = 1.2, b: float = 0.7
     return [document_id for _, document_id in sorted(scored, key=lambda row: (-row[0], row[1]))]
 
 
-def evaluate(corpus: list[dict], queries: list[dict], *, k: int = 3) -> dict[str, float | int]:
+def evaluate_rankings(
+    rankings: list[list[str]], queries: list[dict], *, k: int = 3
+) -> dict[str, float | int]:
     hits = 0
     reciprocal_ranks = 0.0
-    for case in queries:
-        ranking = rank_bm25(case["question"], corpus)
+    for ranking, case in zip(rankings, queries, strict=True):
         relevant = set(case["relevant_ids"])
         hits += bool(relevant.intersection(ranking[:k]))
         first_rank = next(
@@ -60,6 +61,11 @@ def evaluate(corpus: list[dict], queries: list[dict], *, k: int = 3) -> dict[str
         f"hit_rate_at_{k}": hits / len(queries),
         "mean_reciprocal_rank": reciprocal_ranks / len(queries),
     }
+
+
+def evaluate(corpus: list[dict], queries: list[dict], *, k: int = 3) -> dict[str, float | int]:
+    rankings = [rank_bm25(case["question"], corpus) for case in queries]
+    return evaluate_rankings(rankings, queries, k=k)
 
 
 def main() -> int:

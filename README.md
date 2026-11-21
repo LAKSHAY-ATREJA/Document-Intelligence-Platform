@@ -204,11 +204,17 @@ unknown-citation rejection, missing-citation detection and explicit abstention.
 They do not call Groq or download an embedding model.
 
 `python evaluation/retrieval_eval.py --minimum-hit-rate 0.8` runs a checked-in
-BM25 baseline over six labelled, synthetic retrieval cases and reports hit
+BM25 baseline over six labelled queries and a twelve-chunk synthetic corpus. It reports hit
 rate at 3 and mean reciprocal rank. It is a deterministic regression floor for
 the evaluation plumbing, not evidence that the application's MiniLM embeddings
 generalise to real legal, financial or safety-critical documents. A larger,
 representative embedding benchmark remains required before making such a claim.
+
+`python evaluation/embedding_eval.py --minimum-hit-rate 0.8` runs the same
+labelled cases through the application's actual `all-MiniLM-L6-v2` embedding
+model. CI executes both baselines. The fixture set remains synthetic and small,
+so these numbers detect regressions; they are not a substitute for a
+representative-domain benchmark or answer-faithfulness evaluation.
 
 ---
 
