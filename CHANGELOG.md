@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-21 — Grounding evaluation baseline
+
+- Enforced citations on every factual answer sentence, not merely one citation somewhere in an answer.
+- Added a deterministic BM25 retrieval baseline with labelled corpus/query fixtures.
+- Added hit-rate-at-3 and mean-reciprocal-rank reporting plus CI regression thresholds.
+- Documented that the synthetic lexical baseline does not validate MiniLM or model answer quality.
+
 ## 2026-11-21
 
 - Added stable evidence labels and post-generation citation auditing for Q&A.

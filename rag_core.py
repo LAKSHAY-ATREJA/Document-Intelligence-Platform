@@ -34,6 +34,7 @@ class CitationAudit:
     passed: bool
     cited_sources: tuple[SourceRef, ...]
     invalid_labels: tuple[str, ...]
+    uncited_statements: tuple[str, ...]
     missing_citation: bool
     abstained: bool
 
@@ -74,16 +75,30 @@ def grounded_prompt_template() -> str:
 
 
 def audit_citations(answer: str, context: ContextBundle) -> CitationAudit:
-    """Reject missing citations and labels not present in the retrieved context."""
+    """Reject unknown labels and factual statements without an evidence label."""
     labels = tuple(dict.fromkeys(_CITATION_PATTERN.findall(answer)))
     invalid = tuple(label for label in labels if label not in context.sources)
     abstained = answer.strip() == _ABSTENTION
-    missing = not labels and not abstained
+    statements = tuple(
+        match.group(0).strip()
+        for match in re.finditer(
+            r"[^.!?\n]+[.!?](?:\s*(?:\[S\d+\]\s*)+)?|[^\n.!?]+$",
+            answer,
+        )
+        if match.group(0).strip()
+    )
+    uncited = tuple(
+        statement
+        for statement in statements
+        if not _CITATION_PATTERN.search(statement) and statement != _ABSTENTION
+    )
+    missing = bool(uncited) and not abstained
     cited = tuple(context.sources[label] for label in labels if label in context.sources)
     return CitationAudit(
         passed=not invalid and not missing,
         cited_sources=cited,
         invalid_labels=invalid,
+        uncited_statements=uncited,
         missing_citation=missing,
         abstained=abstained,
     )

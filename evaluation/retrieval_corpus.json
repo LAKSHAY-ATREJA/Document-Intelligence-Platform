@@ -1,0 +1,8 @@
+[
+  {"id": "finance", "text": "The annual report records revenue of 4.8 billion dollars for 2025 and reaffirms guidance."},
+  {"id": "termination", "text": "Either party may terminate the services agreement with thirty days written notice."},
+  {"id": "privacy", "text": "Customer records are retained for seven years and encrypted at rest using managed keys."},
+  {"id": "incident", "text": "The incident review reports a forty two minute recovery time after the database failover."},
+  {"id": "insurance", "text": "The supplier must maintain cyber liability insurance of five million dollars."},
+  {"id": "audit", "text": "The customer may audit supplier security controls once each calendar year with reasonable notice."}
+]
