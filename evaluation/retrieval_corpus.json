@@ -4,5 +4,11 @@
   {"id": "privacy", "text": "Customer records are retained for seven years and encrypted at rest using managed keys."},
   {"id": "incident", "text": "The incident review reports a forty two minute recovery time after the database failover."},
   {"id": "insurance", "text": "The supplier must maintain cyber liability insurance of five million dollars."},
-  {"id": "audit", "text": "The customer may audit supplier security controls once each calendar year with reasonable notice."}
+  {"id": "audit", "text": "The customer may audit supplier security controls once each calendar year with reasonable notice."},
+  {"id": "revenue-policy", "text": "Revenue recognition is reviewed during each quarterly accounting close and external audit."},
+  {"id": "service-event", "text": "The monitoring service terminated an unhealthy worker after repeated failed health checks."},
+  {"id": "log-retention", "text": "Operational logs are retained for thirty days before automated deletion."},
+  {"id": "outage-claim", "text": "The insurer reviewed a business interruption claim following a prolonged network outage."},
+  {"id": "coverage-audit", "text": "Insurance certificates are audited annually to confirm that coverage remains active."},
+  {"id": "financial-audit", "text": "The independent auditor tested revenue controls and reported no material exceptions."}
 ]

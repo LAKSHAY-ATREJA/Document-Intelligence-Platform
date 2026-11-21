@@ -21,5 +21,6 @@ jobs:
       - run: ruff check app.py rag_core.py evaluation tests
       - run: pytest -q
       - run: python evaluation/retrieval_eval.py --minimum-hit-rate 0.8
+      - run: python evaluation/embedding_eval.py --minimum-hit-rate 0.8
       - run: python -m compileall app.py rag_core.py demo.py
 

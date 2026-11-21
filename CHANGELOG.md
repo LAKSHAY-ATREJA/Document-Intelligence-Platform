@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-21 — Production retriever evaluation
+
+- Added executable evaluation of the actual `all-MiniLM-L6-v2` retriever.
+- Added confounding corpus passages to make the six labelled queries less trivial.
+- Reused the same hit-rate-at-3 and MRR calculations across lexical and embedding rankings.
+- Added the MiniLM evaluation to hosted CI with an explicit regression floor.
+
 ## 2026-11-21 — Grounding evaluation baseline
 
 - Enforced citations on every factual answer sentence, not merely one citation somewhere in an answer.
