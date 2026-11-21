@@ -14,7 +14,12 @@ from langchain_core.prompts import PromptTemplate
 from langchain_groq import ChatGroq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from rag_core import audit_citations, build_evidence_context, grounded_prompt_template
+from rag_core import (
+    audit_citations,
+    build_evidence_context,
+    extractive_answer,
+    grounded_prompt_template,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -309,7 +314,12 @@ def compare_docs(summaries: dict, api_key: str) -> str:
         return "Comparison failed. Check the server logs for details."
 
 
-def cross_qa(vectorstore: FAISS, question: str, api_key: str) -> tuple:
+def cross_qa(
+    vectorstore: FAISS,
+    question: str,
+    api_key: str = "",
+    mode: str = "extractive",
+) -> tuple:
     """Answer a question using retrieval-augmented generation across the vector index.
 
     Returns ``(answer_text, source_documents, citation_audit)``.
@@ -318,15 +328,20 @@ def cross_qa(vectorstore: FAISS, question: str, api_key: str) -> tuple:
         return "Please enter a question.", [], None
     if vectorstore is None:
         return "No documents have been indexed yet. Upload at least one PDF first.", [], None
-    llm = get_llm(api_key, 0)
-    prompt_template = grounded_prompt_template()
-    prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
     try:
         retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
         source_docs = retriever.invoke(question)
         context = build_evidence_context(source_docs)
-        chain = prompt | llm | StrOutputParser()
-        answer = chain.invoke({"context": context.text, "question": question})
+        if mode == "extractive":
+            answer = extractive_answer(question, source_docs)
+        else:
+            llm = get_llm(api_key, 0)
+            prompt = PromptTemplate(
+                template=grounded_prompt_template(),
+                input_variables=["context", "question"],
+            )
+            chain = prompt | llm | StrOutputParser()
+            answer = chain.invoke({"context": context.text, "question": question})
         citation_audit = audit_citations(answer, context)
         return answer, source_docs, citation_audit
     except Exception as e:  # noqa: BLE001 - retriever/provider boundary
@@ -392,7 +407,7 @@ with st.sidebar:
         help="Upload one or more PDF files (text-based, not scanned images)",
     )
 
-    if uploaded_files and api_key:
+    if uploaded_files:
         new_files = [f for f in uploaded_files if f.name not in st.session_state.documents]
         if new_files:
             progress = st.progress(0)
@@ -420,9 +435,6 @@ with st.sidebar:
                     except Exception as e:  # noqa: BLE001 - vector backend boundary
                         progress.empty()
                         st.error(f"Failed to build search index: {e}")
-    elif uploaded_files and not api_key:
-        st.warning("Enter your Groq API key above before uploading documents.")
-
     if st.session_state.documents:
         st.divider()
         st.header("Document Library")
@@ -447,13 +459,12 @@ with st.sidebar:
             st.session_state.comparison = None
             st.rerun()
 
-# ── Guard: require API key ────────────────────────────────────
+# ── Model availability ────────────────────────────────────────
 if not api_key:
     st.info(
-        "Enter your Groq API key in the sidebar to get started. "
-        "Free keys are available at [console.groq.com](https://console.groq.com)."
+        "No Groq key is configured. Upload and extractive Q&A remain available; "
+        "generative summaries, entities and comparisons are disabled."
     )
-    st.stop()
 
 # ── Guard: require at least one document ─────────────────────
 if not st.session_state.documents:
@@ -490,7 +501,7 @@ tab1, tab2, tab3, tab4 = st.tabs(
 # ── Tab 1: Summaries ──────────────────────────────────────────
 with tab1:
     st.subheader("AI-Generated Document Summaries")
-    if st.button("Generate All Summaries", type="primary"):
+    if st.button("Generate All Summaries", type="primary", disabled=not api_key):
         for fname, data in st.session_state.documents.items():
             if fname not in st.session_state.summaries:
                 with st.spinner(f"Summarising {fname}..."):
@@ -510,7 +521,9 @@ with tab1:
 # ── Tab 2: Entity Extraction ──────────────────────────────────
 with tab2:
     st.subheader("Automated Entity Extraction")
-    if st.button("Extract Entities from All Documents", type="primary"):
+    if st.button(
+        "Extract Entities from All Documents", type="primary", disabled=not api_key
+    ):
         for fname, data in st.session_state.documents.items():
             if fname not in st.session_state.entities:
                 with st.spinner(f"Extracting from {fname}..."):
@@ -548,7 +561,7 @@ with tab3:
     if len(st.session_state.documents) < 2:
         st.info("Upload at least 2 documents to compare them.")
     else:
-        if st.button("Compare All Documents", type="primary"):
+        if st.button("Compare All Documents", type="primary", disabled=not api_key):
             # Ensure summaries exist for all documents before comparing
             missing = [
                 fname for fname in st.session_state.documents
@@ -581,6 +594,14 @@ with tab4:
         f"Searching across {len(st.session_state.documents)} document(s) "
         "simultaneously with source attribution"
     )
+    qa_mode = st.radio(
+        "Answer mode",
+        ["Extractive (offline)", "Generative (Groq)"],
+        horizontal=True,
+        index=0 if not api_key else 1,
+    )
+    if qa_mode == "Generative (Groq)" and not api_key:
+        st.warning("Enter a Groq API key to use generative Q&A.")
 
     for qa in st.session_state.qa_history:
         with st.chat_message("user"):
@@ -589,14 +610,20 @@ with tab4:
             st.write(qa["answer"])
             render_citation_audit(qa.get("citation_audit"))
 
-    question = st.chat_input("Ask anything about your documents...")
+    question = st.chat_input(
+        "Ask anything about your documents...",
+        disabled=qa_mode == "Generative (Groq)" and not api_key,
+    )
     if question:
         with st.chat_message("user"):
             st.write(question)
         with st.chat_message("assistant"):
             with st.spinner("Searching across all documents..."):
                 answer, sources, citation_audit = cross_qa(
-                    st.session_state.vectorstore, question, api_key
+                    st.session_state.vectorstore,
+                    question,
+                    api_key,
+                    mode="extractive" if qa_mode == "Extractive (offline)" else "generative",
                 )
             st.write(answer)
             render_citation_audit(citation_audit)

@@ -10,6 +10,12 @@ from dataclasses import dataclass
 
 _CITATION_PATTERN = re.compile(r"\[S\d+\]")
 _ABSTENTION = "INSUFFICIENT_EVIDENCE"
+_WORD_PATTERN = re.compile(r"[a-z0-9]+")
+_STOP_WORDS = {
+    "a", "an", "and", "are", "did", "do", "does", "for", "how", "in",
+    "is", "of", "on", "the", "to", "was", "were", "what", "when", "where",
+    "which", "who", "why",
+}
 
 
 @dataclass(frozen=True)
@@ -71,6 +77,32 @@ def grounded_prompt_template() -> str:
         "with one or more exact source labels such as [S1]. Do not invent labels.\n"
         f"If the evidence does not answer the question, reply exactly {_ABSTENTION}.\n\n"
         "Evidence:\n{context}\n\nQuestion: {question}\n\nAnswer:"
+    )
+
+
+def extractive_answer(question: str, source_documents: Iterable[object], *, limit: int = 3) -> str:
+    """Return the highest-overlap evidence sentences with stable citations.
+
+    This credential-free fallback is intentionally extractive: it never
+    synthesizes claims beyond text already present in retrieved chunks.
+    """
+    documents = list(source_documents)
+    query_terms = set(_WORD_PATTERN.findall(question.lower())) - _STOP_WORDS
+    candidates: list[tuple[int, int, int, str]] = []
+    for source_index, document in enumerate(documents, start=1):
+        content = str(getattr(document, "page_content", ""))
+        for sentence_index, sentence in enumerate(re.split(r"(?<=[.!?])\s+|\n+", content)):
+            cleaned = sentence.strip()
+            terms = set(_WORD_PATTERN.findall(cleaned.lower()))
+            overlap = len(query_terms.intersection(terms))
+            if cleaned and overlap:
+                candidates.append((-overlap, source_index, sentence_index, cleaned))
+    if not candidates:
+        return _ABSTENTION
+    selected = sorted(candidates)[:limit]
+    return "\n".join(
+        f"{sentence.rstrip()} [S{source_index}]"
+        for _, source_index, _, sentence in selected
     )
 
 

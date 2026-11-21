@@ -16,6 +16,8 @@ Most document analysis tools process one file at a time. This platform treats an
 - Unified Q&A asks the model to cite stable retrieved-evidence labels and audits
   every factual sentence and audits the returned labels before presenting the answer as grounded. Failed audits
   are shown as unverified rather than silently treated as valid attribution.
+- Credential-free extractive Q&A returns only retrieved evidence sentences with
+  stable citations and abstains when no query terms overlap the evidence.
 
 ---
 
@@ -90,7 +92,9 @@ cp .env.example .env
 streamlit run app.py
 ```
 
-Streamlit opens a browser tab at `http://localhost:8501`. Enter your Groq API key in the sidebar, upload one or more PDF files, and use the four tabs — Summaries, Entity Extraction, Cross-Doc Analysis, and Q&A — to analyse your documents.
+Streamlit opens a browser tab at `http://localhost:8501`. Upload one or more PDFs
+and use extractive Q&A without credentials. Enter a Groq API key only when using
+generative summaries, entity extraction, comparison or generative Q&A.
 
 ---
 
