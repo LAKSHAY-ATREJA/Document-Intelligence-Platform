@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-22 — Credential-free extractive Q&A
+
+- Added a deterministic extractive answer mode that returns retrieved sentences with citations.
+- Added explicit abstention when retrieved evidence has no meaningful term overlap.
+- Allowed PDF indexing and extractive Q&A without a Groq API key.
+- Disabled only generative controls when provider credentials are absent.
+
 ## 2026-11-21 — Production retriever evaluation
 
 - Added executable evaluation of the actual `all-MiniLM-L6-v2` retriever.

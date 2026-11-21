@@ -1,6 +1,11 @@
 from dataclasses import dataclass, field
 
-from rag_core import audit_citations, build_evidence_context, grounded_prompt_template
+from rag_core import (
+    audit_citations,
+    build_evidence_context,
+    extractive_answer,
+    grounded_prompt_template,
+)
 
 
 @dataclass
@@ -65,3 +70,23 @@ def test_every_factual_sentence_requires_its_own_citation():
 
     assert audit.passed is False
     assert audit.uncited_statements == ("The policy applies.",)
+
+
+def test_extractive_answer_is_credential_free_and_citation_valid():
+    documents = [
+        FakeDocument(
+            "Records are retained for seven years. Encryption uses managed keys.",
+            {"source_file": "policy.pdf", "page": 0},
+        ),
+        FakeDocument("Backups run nightly.", {"source_file": "ops.pdf", "page": 2}),
+    ]
+    answer = extractive_answer("How long are records retained?", documents)
+    context = build_evidence_context(documents)
+
+    assert answer == "Records are retained for seven years. [S1]"
+    assert audit_citations(answer, context).passed is True
+
+
+def test_extractive_answer_abstains_without_term_overlap():
+    documents = [FakeDocument("Revenue increased.", {"source_file": "report.pdf"})]
+    assert extractive_answer("What is the retention period?", documents) == "INSUFFICIENT_EVIDENCE"
