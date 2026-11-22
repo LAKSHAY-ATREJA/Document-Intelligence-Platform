@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from retrieval_eval import evaluate_rankings
+from evaluation.retrieval_eval import evaluate_rankings
 
 
 def rank_with_minilm(corpus: list[dict], questions: list[str]) -> list[list[str]]:
