@@ -72,6 +72,16 @@ def test_every_factual_sentence_requires_its_own_citation():
     assert audit.uncited_statements == ("The policy applies.",)
 
 
+def test_decimal_point_is_not_treated_as_a_sentence_boundary():
+    context = build_evidence_context(
+        [FakeDocument("Revenue was $4.8B.", {"source_file": "report.pdf"})]
+    )
+    audit = audit_citations("Revenue was $4.8B. [S1]", context)
+
+    assert audit.passed is True
+    assert audit.uncited_statements == ()
+
+
 def test_extractive_answer_is_credential_free_and_citation_valid():
     documents = [
         FakeDocument(

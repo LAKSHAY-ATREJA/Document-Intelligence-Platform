@@ -68,8 +68,11 @@ def main() -> int:
     rankings = rank_with_minilm(corpus, [case["question"] for case in cases])
     metrics = evaluate_cases(corpus, cases, rankings)
     print(json.dumps(metrics, indent=2, sort_keys=True))
-    required = ("answerable_accuracy", "abstention_accuracy", "citation_pass_rate")
-    return 0 if all(metrics[name] >= args.minimum_accuracy for name in required) else 1
+    accuracy_passed = all(
+        metrics[name] >= args.minimum_accuracy
+        for name in ("answerable_accuracy", "abstention_accuracy")
+    )
+    return 0 if accuracy_passed and metrics["citation_pass_rate"] == 1.0 else 1
 
 
 if __name__ == "__main__":

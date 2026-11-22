@@ -225,7 +225,9 @@ MiniLM retrieval → extractive answer → citation audit path. Six answerable c
 check expected evidence terms, while two unanswerable cases check explicit
 abstention. It reports answerable accuracy, abstention accuracy and citation
 pass rate separately so retrieval success cannot conceal unsafe answer behavior.
-The same synthetic-data limitation applies.
+CI requires perfect citation validity on this controlled fixture in addition to
+the configured answer and abstention accuracy floor. The same synthetic-data
+limitation applies.
 
 ---
 
