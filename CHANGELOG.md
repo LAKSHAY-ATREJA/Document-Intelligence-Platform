@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-22 — Inspectable grounding evaluations
+
+- Added stable case identifiers and per-case retrieval, answer and policy results.
+- Added optional JSON report output to the end-to-end evaluation runner.
+- Retain each hosted grounding report as a 14-day GitHub Actions artifact.
+
 ## 2026-11-22 — Bounded document ingestion
 
 - Added post-parse page and extracted-character limits before chunking and embedding.

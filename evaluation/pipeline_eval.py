@@ -23,14 +23,17 @@ class EvaluationDocument:
     metadata: dict
 
 
-def evaluate_cases(corpus: list[dict], cases: list[dict], rankings: list[list[str]]) -> dict:
+def evaluate_pipeline(
+    corpus: list[dict], cases: list[dict], rankings: list[list[str]]
+) -> dict:
     by_id = {item["id"]: item for item in corpus}
     answerable_total = 0
     answerable_passed = 0
     abstention_total = 0
     abstention_passed = 0
     citation_passed = 0
-    for case, ranking in zip(cases, rankings, strict=True):
+    case_results = []
+    for index, (case, ranking) in enumerate(zip(cases, rankings, strict=True), start=1):
         documents = [
             EvaluationDocument(
                 page_content=by_id[document_id]["text"],
@@ -41,32 +44,58 @@ def evaluate_cases(corpus: list[dict], cases: list[dict], rankings: list[list[st
         answer = extractive_answer(case["question"], documents)
         audit = audit_citations(answer, build_evidence_context(documents))
         citation_passed += audit.passed
+        terms_passed = all(
+            term.lower() in answer.lower() for term in case["expected_terms"]
+        )
+        abstention_passed_for_case = answer == "INSUFFICIENT_EVIDENCE"
         if case["should_abstain"]:
             abstention_total += 1
-            abstention_passed += answer == "INSUFFICIENT_EVIDENCE"
+            abstention_passed += abstention_passed_for_case
         else:
             answerable_total += 1
-            lowered = answer.lower()
-            answerable_passed += audit.passed and all(
-                term.lower() in lowered for term in case["expected_terms"]
-            )
+            answerable_passed += audit.passed and terms_passed
+        case_results.append(
+            {
+                "id": case.get("id", f"case-{index}"),
+                "question": case["question"],
+                "should_abstain": case["should_abstain"],
+                "retrieved_ids": ranking[:5],
+                "answer": answer,
+                "expected_terms_passed": terms_passed,
+                "abstention_passed": abstention_passed_for_case,
+                "citation_passed": audit.passed,
+            }
+        )
     return {
-        "cases": len(cases),
-        "answerable_accuracy": answerable_passed / answerable_total,
-        "abstention_accuracy": abstention_passed / abstention_total,
-        "citation_pass_rate": citation_passed / len(cases),
+        "evaluation": {"retriever": "all-MiniLM-L6-v2", "top_k": 5},
+        "metrics": {
+            "cases": len(cases),
+            "answerable_accuracy": answerable_passed / answerable_total,
+            "abstention_accuracy": abstention_passed / abstention_total,
+            "citation_pass_rate": citation_passed / len(cases),
+        },
+        "case_results": case_results,
     }
+
+
+def evaluate_cases(corpus: list[dict], cases: list[dict], rankings: list[list[str]]) -> dict:
+    return evaluate_pipeline(corpus, cases, rankings)["metrics"]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--minimum-accuracy", type=float, default=0.0)
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     root = Path(__file__).parent
     corpus = json.loads((root / "retrieval_corpus.json").read_text())
     cases = json.loads((root / "pipeline_cases.json").read_text())
     rankings = rank_with_minilm(corpus, [case["question"] for case in cases])
-    metrics = evaluate_cases(corpus, cases, rankings)
+    report = evaluate_pipeline(corpus, cases, rankings)
+    metrics = report["metrics"]
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(json.dumps(metrics, indent=2, sort_keys=True))
     accuracy_passed = all(
         metrics[name] >= args.minimum_accuracy
