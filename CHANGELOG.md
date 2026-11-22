@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-22 — End-to-end answer evaluation
+
+- Added MiniLM retrieval-to-answer evaluation across six answerable and two unanswerable cases.
+- Measure expected evidence-term accuracy, abstention accuracy and citation validity separately.
+- Added a hosted CI regression floor for every pipeline metric.
+- Corrected citation auditing so decimal points are not treated as sentence boundaries.
+
 ## 2026-11-22 — Credential-free extractive Q&A
 
 - Added a deterministic extractive answer mode that returns retrieved sentences with citations.

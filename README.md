@@ -220,6 +220,15 @@ model. CI executes both baselines. The fixture set remains synthetic and small,
 so these numbers detect regressions; they are not a substitute for a
 representative-domain benchmark or answer-faithfulness evaluation.
 
+`python evaluation/pipeline_eval.py --minimum-accuracy 0.8` evaluates the full
+MiniLM retrieval → extractive answer → citation audit path. Six answerable cases
+check expected evidence terms, while two unanswerable cases check explicit
+abstention. It reports answerable accuracy, abstention accuracy and citation
+pass rate separately so retrieval success cannot conceal unsafe answer behavior.
+CI requires perfect citation validity on this controlled fixture in addition to
+the configured answer and abstention accuracy floor. The same synthetic-data
+limitation applies.
+
 ---
 
 Built by Lakshay Atreja — https://github.com/LAKSHAY-ATREJA

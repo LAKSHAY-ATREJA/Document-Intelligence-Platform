@@ -1,0 +1,10 @@
+[
+  {"question": "What revenue did the annual report record?", "expected_terms": ["4.8 billion"], "should_abstain": false},
+  {"question": "How much written notice is required to terminate the agreement?", "expected_terms": ["thirty days"], "should_abstain": false},
+  {"question": "How long are customer records retained?", "expected_terms": ["seven years"], "should_abstain": false},
+  {"question": "What was the recovery time after failover?", "expected_terms": ["forty two minute"], "should_abstain": false},
+  {"question": "What cyber liability insurance must the supplier carry?", "expected_terms": ["five million"], "should_abstain": false},
+  {"question": "How often may the customer audit security controls?", "expected_terms": ["once each calendar year"], "should_abstain": false},
+  {"question": "What is the employee vacation allowance?", "expected_terms": [], "should_abstain": true},
+  {"question": "Where is the company headquarters?", "expected_terms": [], "should_abstain": true}
+]

@@ -111,11 +111,15 @@ def audit_citations(answer: str, context: ContextBundle) -> CitationAudit:
     labels = tuple(dict.fromkeys(_CITATION_PATTERN.findall(answer)))
     invalid = tuple(label for label in labels if label not in context.sources)
     abstained = answer.strip() == _ABSTENTION
+    # A decimal point is not a sentence boundary. Mask it while applying the
+    # sentence-level citation policy, then restore it in any reported failure.
+    decimal_marker = "<DECIMAL_POINT>"
+    answer_for_audit = re.sub(r"(?<=\d)\.(?=\d)", decimal_marker, answer)
     statements = tuple(
-        match.group(0).strip()
+        match.group(0).strip().replace(decimal_marker, ".")
         for match in re.finditer(
             r"[^.!?\n]+[.!?](?:\s*(?:\[S\d+\]\s*)+)?|[^\n.!?]+$",
-            answer,
+            answer_for_audit,
         )
         if match.group(0).strip()
     )
