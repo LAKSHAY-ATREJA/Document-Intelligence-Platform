@@ -108,6 +108,19 @@ def test_extractive_answer_abstains_without_term_overlap():
     assert extractive_answer("What is the retention period?", documents) == "INSUFFICIENT_EVIDENCE"
 
 
+def test_extractive_answer_rejects_weak_single_term_overlap():
+    documents = [
+        FakeDocument(
+            "Customer records are retained for seven years.",
+            {"source_file": "customer-policy.pdf"},
+        )
+    ]
+    answer = extractive_answer(
+        "What is the employee records retention period?", documents
+    )
+    assert answer == "INSUFFICIENT_EVIDENCE"
+
+
 def test_document_ingestion_bounds_pages_and_extracted_characters():
     limits = DocumentIngestionLimits(max_pages=2, max_characters=20)
     accepted = validate_document_pages(

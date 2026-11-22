@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-23 — Evidence sufficiency for offline answers
+
+- Added minimum informative-term overlap and query-coverage policy.
+- Added an adversarial regression case for a misleading single-word match.
+- Preserved explicit abstention when the evidence floor is not met.
+
 ## 2026-11-22 — Atomic collection admission
 
 - Added collection-wide document, page and extracted-character limits.
