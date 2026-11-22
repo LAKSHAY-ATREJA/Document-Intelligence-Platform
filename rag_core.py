@@ -58,6 +58,12 @@ class DocumentCollectionLimits:
     max_total_characters: int = 5_000_000
 
 
+@dataclass(frozen=True)
+class ExtractiveAnswerPolicy:
+    minimum_overlap_terms: int = 2
+    minimum_query_coverage: float = 0.5
+
+
 def validate_document_pages(
     source_documents: Iterable[object],
     filename: str,
@@ -159,7 +165,13 @@ def grounded_prompt_template() -> str:
     )
 
 
-def extractive_answer(question: str, source_documents: Iterable[object], *, limit: int = 3) -> str:
+def extractive_answer(
+    question: str,
+    source_documents: Iterable[object],
+    *,
+    limit: int = 3,
+    policy: ExtractiveAnswerPolicy = ExtractiveAnswerPolicy(),
+) -> str:
     """Return the highest-overlap evidence sentences with stable citations.
 
     This credential-free fallback is intentionally extractive: it never
@@ -167,6 +179,9 @@ def extractive_answer(question: str, source_documents: Iterable[object], *, limi
     """
     documents = list(source_documents)
     query_terms = set(_WORD_PATTERN.findall(question.lower())) - _STOP_WORDS
+    if not query_terms:
+        return _ABSTENTION
+    required_overlap = min(policy.minimum_overlap_terms, len(query_terms))
     candidates: list[tuple[int, int, int, str]] = []
     for source_index, document in enumerate(documents, start=1):
         content = str(getattr(document, "page_content", ""))
@@ -174,7 +189,12 @@ def extractive_answer(question: str, source_documents: Iterable[object], *, limi
             cleaned = sentence.strip()
             terms = set(_WORD_PATTERN.findall(cleaned.lower()))
             overlap = len(query_terms.intersection(terms))
-            if cleaned and overlap:
+            coverage = overlap / len(query_terms)
+            if (
+                cleaned
+                and overlap >= required_overlap
+                and coverage >= policy.minimum_query_coverage
+            ):
                 candidates.append((-overlap, source_index, sentence_index, cleaned))
     if not candidates:
         return _ABSTENTION

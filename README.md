@@ -242,6 +242,13 @@ that breaches an aggregate limit is rejected before chunking or embedding, and
 the previously usable index remains active rather than being replaced by a
 partial rebuild.
 
+The credential-free extractive mode applies an evidence-sufficiency floor: an
+answer sentence must match at least two informative query terms (or every term
+for a one-word query) and cover at least half of the informative query. This
+suppresses answers produced from a single generic word such as “records”. It is
+a deterministic guardrail, not semantic entailment; the evaluation suite and
+explicit abstention behavior remain necessary.
+
 ---
 
 Built by Lakshay Atreja — https://github.com/LAKSHAY-ATREJA
