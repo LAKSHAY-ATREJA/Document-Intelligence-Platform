@@ -2,7 +2,11 @@
 
 import argparse
 import json
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).parents[1]
+sys.path.insert(0, str(ROOT))
 
 from evaluation.retrieval_eval import evaluate_rankings
 
