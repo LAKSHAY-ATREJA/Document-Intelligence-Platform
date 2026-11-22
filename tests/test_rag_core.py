@@ -3,11 +3,13 @@ from dataclasses import dataclass, field
 import pytest
 
 from rag_core import (
+    DocumentCollectionLimits,
     DocumentIngestionLimits,
     audit_citations,
     build_evidence_context,
     extractive_answer,
     grounded_prompt_template,
+    validate_document_collection,
     validate_document_pages,
 )
 
@@ -126,3 +128,34 @@ def test_document_ingestion_rejects_empty_extraction():
         validate_document_pages([], "empty.pdf")
     with pytest.raises(ValueError, match="Run OCR"):
         validate_document_pages([FakeDocument("")], "scan.pdf")
+
+
+def test_document_collection_limits_bound_aggregate_embedding_work():
+    limits = DocumentCollectionLimits(
+        max_documents=2,
+        max_total_pages=3,
+        max_total_characters=12,
+    )
+    validate_document_collection(
+        {
+            "first.pdf": [FakeDocument("one")],
+            "second.pdf": [FakeDocument("two"), FakeDocument("three")],
+        },
+        limits,
+    )
+
+    with pytest.raises(ValueError, match="3 documents.*limit is 2"):
+        validate_document_collection(
+            {name: [FakeDocument("x")] for name in ["a", "b", "c"]},
+            limits,
+        )
+    with pytest.raises(ValueError, match="4 pages.*limit is 3"):
+        validate_document_collection(
+            {"pages.pdf": [FakeDocument("x")] * 4},
+            limits,
+        )
+    with pytest.raises(ValueError, match="13 extracted characters.*limit is 12"):
+        validate_document_collection(
+            {"dense.pdf": [FakeDocument("x" * 13)]},
+            limits,
+        )

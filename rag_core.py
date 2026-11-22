@@ -51,6 +51,13 @@ class DocumentIngestionLimits:
     max_characters: int = 2_000_000
 
 
+@dataclass(frozen=True)
+class DocumentCollectionLimits:
+    max_documents: int = 10
+    max_total_pages: int = 500
+    max_total_characters: int = 5_000_000
+
+
 def validate_document_pages(
     source_documents: Iterable[object],
     filename: str,
@@ -87,6 +94,34 @@ def validate_document_pages(
             f"the per-document limit is {limits.max_characters}."
         )
     return documents
+
+
+def validate_document_collection(
+    documents: dict[str, list[object]],
+    limits: DocumentCollectionLimits = DocumentCollectionLimits(),
+) -> None:
+    """Reject an aggregate upload before chunking or embedding begins."""
+    if len(documents) > limits.max_documents:
+        raise ValueError(
+            f"The collection has {len(documents)} documents; "
+            f"the session limit is {limits.max_documents}."
+        )
+    total_pages = sum(len(pages) for pages in documents.values())
+    if total_pages > limits.max_total_pages:
+        raise ValueError(
+            f"The collection has {total_pages} pages; "
+            f"the session limit is {limits.max_total_pages}."
+        )
+    total_characters = sum(
+        len(str(getattr(page, "page_content", "")))
+        for pages in documents.values()
+        for page in pages
+    )
+    if total_characters > limits.max_total_characters:
+        raise ValueError(
+            f"The collection has {total_characters} extracted characters; "
+            f"the session limit is {limits.max_total_characters}."
+        )
 
 
 def build_evidence_context(source_documents: Iterable[object]) -> ContextBundle:
