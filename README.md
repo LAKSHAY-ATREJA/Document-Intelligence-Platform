@@ -235,6 +235,13 @@ limitation applies. CI retains the machine-readable metrics, retrieved chunk
 IDs, extractive answers and per-case pass/fail fields as a 14-day workflow
 artifact so failures can be inspected without inferring them from aggregates.
 
+PDF admission is atomic at the session boundary. Each file is limited to 10 MB,
+200 pages and 2,000,000 extracted characters; the full in-memory collection is
+limited to 10 documents, 500 pages and 5,000,000 extracted characters. A batch
+that breaches an aggregate limit is rejected before chunking or embedding, and
+the previously usable index remains active rather than being replaced by a
+partial rebuild.
+
 ---
 
 Built by Lakshay Atreja — https://github.com/LAKSHAY-ATREJA

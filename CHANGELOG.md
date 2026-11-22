@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-22 — Atomic collection admission
+
+- Added collection-wide document, page and extracted-character limits.
+- Validate an upload batch before chunking or embedding starts.
+- Preserve the prior document set and index if admission or rebuilding fails.
+
 ## 2026-11-22 — Inspectable grounding evaluations
 
 - Added stable case identifiers and per-case retrieval, answer and policy results.

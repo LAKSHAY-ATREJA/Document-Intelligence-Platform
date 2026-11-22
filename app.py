@@ -19,6 +19,7 @@ from rag_core import (
     build_evidence_context,
     extractive_answer,
     grounded_prompt_template,
+    validate_document_collection,
     validate_document_pages,
 )
 
@@ -408,12 +409,13 @@ with st.sidebar:
         new_files = [f for f in uploaded_files if f.name not in st.session_state.documents]
         if new_files:
             progress = st.progress(0)
+            pending_documents = {}
             for idx, f in enumerate(new_files):
                 with st.spinner(f"Processing {f.name}..."):
                     try:
                         docs = process_pdf(f)
                         full_text = " ".join([d.page_content for d in docs])
-                        st.session_state.documents[f.name] = {
+                        pending_documents[f.name] = {
                             "docs": docs,
                             "text": full_text,
                             "pages": len(docs),
@@ -423,12 +425,24 @@ with st.sidebar:
                         st.error(f"Failed to process {f.name}: {e}")
                 progress.progress((idx + 1) / len(new_files))
 
-            if st.session_state.documents:
+            if pending_documents:
                 with st.spinner("Building unified search index..."):
                     try:
-                        st.session_state.vectorstore = rebuild_vectorstore(st.session_state.documents)
+                        candidate_documents = {
+                            **st.session_state.documents,
+                            **pending_documents,
+                        }
+                        validate_document_collection(
+                            {
+                                name: data["docs"]
+                                for name, data in candidate_documents.items()
+                            }
+                        )
+                        candidate_vectorstore = rebuild_vectorstore(candidate_documents)
+                        st.session_state.documents = candidate_documents
+                        st.session_state.vectorstore = candidate_vectorstore
                         progress.empty()
-                        st.success(f"{len(new_files)} document(s) ready!")
+                        st.success(f"{len(pending_documents)} document(s) ready!")
                     except Exception as e:  # noqa: BLE001 - vector backend boundary
                         progress.empty()
                         st.error(f"Failed to build search index: {e}")
