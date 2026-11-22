@@ -45,6 +45,50 @@ class CitationAudit:
     abstained: bool
 
 
+@dataclass(frozen=True)
+class DocumentIngestionLimits:
+    max_pages: int = 200
+    max_characters: int = 2_000_000
+
+
+def validate_document_pages(
+    source_documents: Iterable[object],
+    filename: str,
+    limits: DocumentIngestionLimits = DocumentIngestionLimits(),
+) -> list[object]:
+    """Bound the content admitted to embedding and downstream model calls.
+
+    The byte-size check remains at the upload boundary. These post-parse limits
+    prevent compact PDFs with extreme page or extracted-text counts from
+    creating unbounded chunking, embedding, or provider workloads.
+    """
+    documents = list(source_documents)
+    if not documents:
+        raise ValueError(
+            f"No readable pages found in '{filename}'. "
+            "The PDF may be scanned or password-protected."
+        )
+    if len(documents) > limits.max_pages:
+        raise ValueError(
+            f"'{filename}' has {len(documents)} pages; "
+            f"the per-document limit is {limits.max_pages}."
+        )
+    characters = sum(
+        len(str(getattr(document, "page_content", ""))) for document in documents
+    )
+    if characters == 0:
+        raise ValueError(
+            f"No extractable text found in '{filename}'. "
+            "Run OCR before uploading scanned PDFs."
+        )
+    if characters > limits.max_characters:
+        raise ValueError(
+            f"'{filename}' contains {characters} extracted characters; "
+            f"the per-document limit is {limits.max_characters}."
+        )
+    return documents
+
+
 def build_evidence_context(source_documents: Iterable[object]) -> ContextBundle:
     """Wrap retrieved chunks in stable labels and explicit trust boundaries."""
     blocks: list[str] = []

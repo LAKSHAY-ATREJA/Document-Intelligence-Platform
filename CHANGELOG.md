@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-22 — Bounded document ingestion
+
+- Added post-parse page and extracted-character limits before chunking and embedding.
+- Added explicit empty-text/OCR guidance and deterministic boundary tests.
+- Documented that content limits do not sandbox the underlying PDF parser.
+
 ## 2026-11-22 — End-to-end answer evaluation
 
 - Added MiniLM retrieval-to-answer evaluation across six answerable and two unanswerable cases.

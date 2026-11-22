@@ -1,10 +1,14 @@
 from dataclasses import dataclass, field
 
+import pytest
+
 from rag_core import (
+    DocumentIngestionLimits,
     audit_citations,
     build_evidence_context,
     extractive_answer,
     grounded_prompt_template,
+    validate_document_pages,
 )
 
 
@@ -100,3 +104,25 @@ def test_extractive_answer_is_credential_free_and_citation_valid():
 def test_extractive_answer_abstains_without_term_overlap():
     documents = [FakeDocument("Revenue increased.", {"source_file": "report.pdf"})]
     assert extractive_answer("What is the retention period?", documents) == "INSUFFICIENT_EVIDENCE"
+
+
+def test_document_ingestion_bounds_pages_and_extracted_characters():
+    limits = DocumentIngestionLimits(max_pages=2, max_characters=20)
+    accepted = validate_document_pages(
+        [FakeDocument("first page"), FakeDocument("second")],
+        "accepted.pdf",
+        limits,
+    )
+    assert len(accepted) == 2
+
+    with pytest.raises(ValueError, match="3 pages.*limit is 2"):
+        validate_document_pages([FakeDocument("x")] * 3, "long.pdf", limits)
+    with pytest.raises(ValueError, match="21 extracted characters.*limit is 20"):
+        validate_document_pages([FakeDocument("x" * 21)], "dense.pdf", limits)
+
+
+def test_document_ingestion_rejects_empty_extraction():
+    with pytest.raises(ValueError, match="No readable pages"):
+        validate_document_pages([], "empty.pdf")
+    with pytest.raises(ValueError, match="Run OCR"):
+        validate_document_pages([FakeDocument("")], "scan.pdf")

@@ -189,7 +189,10 @@ This is compatible with Heroku, Railway, Fly.io, and any platform that respects 
 
 The parser works on text-based PDFs where text is stored as selectable characters. Scanned PDFs (images of pages) produce no extractable text and will result in empty summaries. If you need to process scanned documents, run them through an OCR tool such as `ocrmypdf` before uploading.
 
-Each uploaded PDF is limited to 10 MB. Retrieval is evaluated only through
+Each uploaded PDF is limited to 10 MB, 200 parsed pages and two million
+extracted characters. The page and character limits are enforced after PDF
+parsing, before chunking and embedding; they bound downstream CPU, memory and
+provider work but do not make the PDF parser a sandbox. Retrieval is evaluated only through
 deterministic grounding-policy tests in CI at present; no claim is made that the
 MiniLM embeddings or Groq model have been benchmarked on a representative legal,
 financial, or safety-critical corpus. Citation presence proves that a retrieved

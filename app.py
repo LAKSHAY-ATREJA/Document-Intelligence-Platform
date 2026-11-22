@@ -19,6 +19,7 @@ from rag_core import (
     build_evidence_context,
     extractive_answer,
     grounded_prompt_template,
+    validate_document_pages,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -199,11 +200,7 @@ def process_pdf(uploaded_file) -> list:
             tmp.write(contents)
             tmp_path = tmp.name
         loader = PyPDFLoader(tmp_path)
-        docs = loader.load()
-        if not docs:
-            raise ValueError(f"No readable pages found in '{uploaded_file.name}'. "
-                             "The PDF may be scanned or password-protected.")
-        return docs
+        return validate_document_pages(loader.load(), uploaded_file.name)
     except Exception as e:
         logger.error("PDF processing failed for %s: %s", uploaded_file.name, e)
         raise
