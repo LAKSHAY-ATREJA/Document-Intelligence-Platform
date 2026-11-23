@@ -5,6 +5,7 @@
 - Expanded the end-to-end grounding benchmark from eight to fourteen cases.
 - Added paraphrased answerable questions alongside direct lookups and out-of-scope abstentions.
 - Reported accuracy and citation validity per slice and enforced a worst-slice CI floor.
+- Normalized conservative English plurals and ignored auxiliary question terms in offline evidence matching.
 
 ## 2026-11-23 — Evidence sufficiency for offline answers
 
