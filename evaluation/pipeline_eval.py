@@ -3,6 +3,7 @@
 import argparse
 import json
 import sys
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -33,6 +34,7 @@ def evaluate_pipeline(
     abstention_passed = 0
     citation_passed = 0
     case_results = []
+    slice_results: dict[str, list[tuple[bool, bool]]] = defaultdict(list)
     for index, (case, ranking) in enumerate(zip(cases, rankings, strict=True), start=1):
         documents = [
             EvaluationDocument(
@@ -51,12 +53,17 @@ def evaluate_pipeline(
         if case["should_abstain"]:
             abstention_total += 1
             abstention_passed += abstention_passed_for_case
+            case_passed = abstention_passed_for_case
         else:
             answerable_total += 1
-            answerable_passed += audit.passed and terms_passed
+            case_passed = audit.passed and terms_passed
+            answerable_passed += case_passed
+        slice_name = case.get("slice", "uncategorized")
+        slice_results[slice_name].append((case_passed, audit.passed))
         case_results.append(
             {
                 "id": case.get("id", f"case-{index}"),
+                "slice": slice_name,
                 "question": case["question"],
                 "should_abstain": case["should_abstain"],
                 "retrieved_ids": ranking[:5],
@@ -66,6 +73,14 @@ def evaluate_pipeline(
                 "citation_passed": audit.passed,
             }
         )
+    slices = {
+        name: {
+            "cases": len(results),
+            "accuracy": sum(passed for passed, _ in results) / len(results),
+            "citation_pass_rate": sum(cited for _, cited in results) / len(results),
+        }
+        for name, results in sorted(slice_results.items())
+    }
     return {
         "evaluation": {"retriever": "all-MiniLM-L6-v2", "top_k": 5},
         "metrics": {
@@ -73,6 +88,7 @@ def evaluate_pipeline(
             "answerable_accuracy": answerable_passed / answerable_total,
             "abstention_accuracy": abstention_passed / abstention_total,
             "citation_pass_rate": citation_passed / len(cases),
+            "slices": slices,
         },
         "case_results": case_results,
     }
@@ -85,6 +101,7 @@ def evaluate_cases(corpus: list[dict], cases: list[dict], rankings: list[list[st
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--minimum-accuracy", type=float, default=0.0)
+    parser.add_argument("--minimum-slice-accuracy", type=float, default=0.0)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     root = Path(__file__).parent
@@ -101,7 +118,11 @@ def main() -> int:
         metrics[name] >= args.minimum_accuracy
         for name in ("answerable_accuracy", "abstention_accuracy")
     )
-    return 0 if accuracy_passed and metrics["citation_pass_rate"] == 1.0 else 1
+    slices_passed = all(
+        result["accuracy"] >= args.minimum_slice_accuracy
+        for result in metrics["slices"].values()
+    )
+    return 0 if accuracy_passed and slices_passed and metrics["citation_pass_rate"] == 1.0 else 1
 
 
 if __name__ == "__main__":

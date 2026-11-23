@@ -12,9 +12,9 @@ _CITATION_PATTERN = re.compile(r"\[S\d+\]")
 _ABSTENTION = "INSUFFICIENT_EVIDENCE"
 _WORD_PATTERN = re.compile(r"[a-z0-9]+")
 _STOP_WORDS = {
-    "a", "an", "and", "are", "did", "do", "does", "for", "how", "in",
-    "is", "of", "on", "the", "to", "was", "were", "what", "when", "where",
-    "which", "who", "why",
+    "a", "an", "and", "are", "be", "did", "do", "does", "for", "how", "in",
+    "is", "many", "must", "of", "on", "the", "to", "was", "were", "what",
+    "when", "where", "which", "who", "why",
 }
 
 
@@ -62,6 +62,20 @@ class DocumentCollectionLimits:
 class ExtractiveAnswerPolicy:
     minimum_overlap_terms: int = 2
     minimum_query_coverage: float = 0.5
+
+
+def _normalize_terms(text: str) -> set[str]:
+    """Normalize conservative English plurals for lexical evidence matching."""
+    terms = set()
+    for term in _WORD_PATTERN.findall(text.lower()):
+        if term in _STOP_WORDS:
+            continue
+        if len(term) > 4 and term.endswith("ies"):
+            term = f"{term[:-3]}y"
+        elif len(term) > 3 and term.endswith("s") and not term.endswith("ss"):
+            term = term[:-1]
+        terms.add(term)
+    return terms
 
 
 def validate_document_pages(
@@ -178,7 +192,7 @@ def extractive_answer(
     synthesizes claims beyond text already present in retrieved chunks.
     """
     documents = list(source_documents)
-    query_terms = set(_WORD_PATTERN.findall(question.lower())) - _STOP_WORDS
+    query_terms = _normalize_terms(question)
     if not query_terms:
         return _ABSTENTION
     required_overlap = min(policy.minimum_overlap_terms, len(query_terms))
@@ -187,7 +201,7 @@ def extractive_answer(
         content = str(getattr(document, "page_content", ""))
         for sentence_index, sentence in enumerate(re.split(r"(?<=[.!?])\s+|\n+", content)):
             cleaned = sentence.strip()
-            terms = set(_WORD_PATTERN.findall(cleaned.lower()))
+            terms = _normalize_terms(cleaned)
             overlap = len(query_terms.intersection(terms))
             coverage = overlap / len(query_terms)
             if (

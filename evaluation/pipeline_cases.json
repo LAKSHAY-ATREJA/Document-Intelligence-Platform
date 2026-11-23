@@ -1,10 +1,16 @@
 [
-  {"id": "recorded-revenue", "question": "What revenue did the annual report record?", "expected_terms": ["4.8 billion"], "should_abstain": false},
-  {"id": "termination-notice", "question": "How much written notice is required to terminate the agreement?", "expected_terms": ["thirty days"], "should_abstain": false},
-  {"id": "record-retention", "question": "How long are customer records retained?", "expected_terms": ["seven years"], "should_abstain": false},
-  {"id": "failover-recovery", "question": "What was the recovery time after failover?", "expected_terms": ["forty two minute"], "should_abstain": false},
-  {"id": "cyber-insurance", "question": "What cyber liability insurance must the supplier carry?", "expected_terms": ["five million"], "should_abstain": false},
-  {"id": "security-audit", "question": "How often may the customer audit security controls?", "expected_terms": ["once each calendar year"], "should_abstain": false},
-  {"id": "unknown-vacation", "question": "What is the employee vacation allowance?", "expected_terms": [], "should_abstain": true},
-  {"id": "unknown-headquarters", "question": "Where is the company headquarters?", "expected_terms": [], "should_abstain": true}
+  {"id": "recorded-revenue", "slice": "direct_lookup", "question": "What revenue did the annual report record?", "expected_terms": ["4.8 billion"], "should_abstain": false},
+  {"id": "termination-notice", "slice": "direct_lookup", "question": "How much written notice is required to terminate the agreement?", "expected_terms": ["thirty days"], "should_abstain": false},
+  {"id": "record-retention", "slice": "direct_lookup", "question": "How long are customer records retained?", "expected_terms": ["seven years"], "should_abstain": false},
+  {"id": "failover-recovery", "slice": "direct_lookup", "question": "What was the recovery time after failover?", "expected_terms": ["forty two minute"], "should_abstain": false},
+  {"id": "cyber-insurance", "slice": "direct_lookup", "question": "What cyber liability insurance must the supplier carry?", "expected_terms": ["five million"], "should_abstain": false},
+  {"id": "security-audit", "slice": "direct_lookup", "question": "How often may the customer audit security controls?", "expected_terms": ["once each calendar year"], "should_abstain": false},
+  {"id": "revenue-paraphrase", "slice": "paraphrase", "question": "Which 2025 revenue figure appears in the report?", "expected_terms": ["4.8 billion"], "should_abstain": false},
+  {"id": "termination-paraphrase", "slice": "paraphrase", "question": "What notice period applies when ending the services agreement?", "expected_terms": ["thirty days"], "should_abstain": false},
+  {"id": "retention-paraphrase", "slice": "paraphrase", "question": "How many years must customer records be kept?", "expected_terms": ["seven years"], "should_abstain": false},
+  {"id": "recovery-paraphrase", "slice": "paraphrase", "question": "How many minutes did database failover recovery take?", "expected_terms": ["forty two minute"], "should_abstain": false},
+  {"id": "insurance-paraphrase", "slice": "paraphrase", "question": "What dollar amount of cyber insurance is required of the supplier?", "expected_terms": ["five million"], "should_abstain": false},
+  {"id": "audit-paraphrase", "slice": "paraphrase", "question": "How frequently can the customer review supplier security controls?", "expected_terms": ["once each calendar year"], "should_abstain": false},
+  {"id": "unknown-vacation", "slice": "out_of_scope", "question": "What is the employee vacation allowance?", "expected_terms": [], "should_abstain": true},
+  {"id": "unknown-headquarters", "slice": "out_of_scope", "question": "Where is the company headquarters?", "expected_terms": [], "should_abstain": true}
 ]

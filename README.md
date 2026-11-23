@@ -225,13 +225,14 @@ representative-domain benchmark or answer-faithfulness evaluation.
 
 `python evaluation/pipeline_eval.py --minimum-accuracy 0.8 --output
 evaluation/pipeline_report.json` evaluates the full
-MiniLM retrieval → extractive answer → citation audit path. Six answerable cases
-check expected evidence terms, while two unanswerable cases check explicit
-abstention. It reports answerable accuracy, abstention accuracy and citation
-pass rate separately so retrieval success cannot conceal unsafe answer behavior.
-CI requires perfect citation validity on this controlled fixture in addition to
-the configured answer and abstention accuracy floor. The same synthetic-data
-limitation applies. CI retains the machine-readable metrics, retrieved chunk
+MiniLM retrieval → extractive answer → citation audit path. Six direct lookups
+and six paraphrased answerable cases check expected evidence terms, while two
+out-of-scope cases check explicit abstention. It reports answerable accuracy,
+abstention accuracy and citation pass rate, plus accuracy and citation validity
+for each evaluation slice. CI requires perfect citation validity and at least
+0.8 accuracy in every slice on this controlled fixture, preventing a strong
+aggregate from hiding a weak query category. The same synthetic-data limitation
+applies. CI retains the machine-readable metrics, retrieved chunk
 IDs, extractive answers and per-case pass/fail fields as a 14-day workflow
 artifact so failures can be inspected without inferring them from aggregates.
 

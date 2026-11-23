@@ -22,7 +22,7 @@ jobs:
       - run: pytest -q
       - run: python evaluation/retrieval_eval.py --minimum-hit-rate 0.8
       - run: python evaluation/embedding_eval.py --minimum-hit-rate 0.8
-      - run: python evaluation/pipeline_eval.py --minimum-accuracy 0.8 --output evaluation/pipeline_report.json
+      - run: python evaluation/pipeline_eval.py --minimum-accuracy 0.8 --minimum-slice-accuracy 0.8 --output evaluation/pipeline_report.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
